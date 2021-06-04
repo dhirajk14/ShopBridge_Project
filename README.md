@@ -11,7 +11,6 @@ This project is built in **ASP.NET  (.NET Framework 4.7.2)**
 - [Setup](#-setup)
 - [Run Project](#-run-project)
 - [Usage](#-usage)
-- [Run Tests](#-run-tests)
 - [Build](#-build)
 - [Time Tracking](#-time-tracking)
 
