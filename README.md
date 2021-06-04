@@ -35,6 +35,15 @@ This project is built in **ASP.NET  (.NET Framework 4.7.2)**
 
 * Right-click on **ShopBridge_Project** project. Click _**Set as Startup Project**_.
 * Run the project by pressing **F5** in the keyboard.
+* Use the localhost url from browser and append the following - api/home/inventory
+* URL http://localhost:YOURPORT/api/home/inventory
+* Configure your connectionstring in Web Config for DB Connection
+* Use Query for DB Table creation ---- CREATE TABLE ShopBridgeProduct (
+    ID int IDENTITY(1,1) PRIMARY KEY,
+    PRODUCT_NAME varchar(255) NOT NULL,
+    PRODUCT_DESCRIPTION varchar(255),
+    PRICE varchar(255),
+);
 ---
 ## ✔ Usage
 
