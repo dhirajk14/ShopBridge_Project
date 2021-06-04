@@ -14,7 +14,6 @@ This project is built in **ASP.NET  (.NET Framework 4.7.2)**
 - [Run Tests](#-run-tests)
 - [Build](#-build)
 - [Time Tracking](#-time-tracking)
-- [License](#-license)
 
 ## ⚙ System Requirements
 
