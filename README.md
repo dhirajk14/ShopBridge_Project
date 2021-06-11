@@ -44,6 +44,8 @@ This project is built in **ASP.NET  (.NET Framework 4.7.2)**
     PRODUCT_DESCRIPTION varchar(255),
     PRICE varchar(255),
 );
+ALTER TABLE ShopBridgeProduct ADD IMAGE_FILE NVARCHAR(MAX)
+
 ---
 ## ✔ Usage
 
