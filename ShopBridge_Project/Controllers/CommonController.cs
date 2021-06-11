@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
@@ -36,7 +36,10 @@ namespace ShopBridge_Project.Controllers
             string description = request.Form["Description"];
             string price = request.Form["Price"];
             string ModifyItem = request.Form["ModifyItem"];
+            string pageNo = request.Form["PageNumber"];
+            string pageSize = request.Form["PageSize"];
             string output = "";
+            string fileAsString = "";
 
             try
             {
@@ -64,16 +67,59 @@ namespace ShopBridge_Project.Controllers
                             jresponse = "{\"status\":false,\"message\":\"Price is empty\"}";
                             return new RawJsonActionResult(jresponse);
                         }
+                        if (HttpContext.Current.Request.Files.Count > 0)
+                        {
+                            for (int i = 0; i < HttpContext.Current.Request.Files.Count; i++)
+                            {
+                                HttpFileCollection files = request.Files;
+                                HttpPostedFile httpfile = files[i];
+
+                                try
+                                {
+                                    if (httpfile.ContentLength > 0)
+                                    {
+
+                                        byte[] fileInBytes = new byte[httpfile.ContentLength];
+                                        using (BinaryReader theReader = new BinaryReader(httpfile.InputStream))
+                                        {
+                                            fileInBytes = theReader.ReadBytes(httpfile.ContentLength);
+                                        }
+                                         fileAsString = Convert.ToBase64String(fileInBytes);
+
+                                    }
+                                    else
+                                    {
+                                        jresponse = "{\"status\":false,\"message\":\"Image file not found\"}";
+                                        return new RawJsonActionResult(jresponse);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    jresponse = "{\"status\":false,\"message\":\"Some error occurred\"}";
+                                    return new RawJsonActionResult(jresponse);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            jresponse = "{\"status\":false,\"message\":\"Image file not found\"}";
+                            return new RawJsonActionResult(jresponse);
+                        }
                         SqlConnection sqlConn = new SqlConnection(WebConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString);
                         SqlCommand sqlComm = new SqlCommand();
                         sqlComm = sqlConn.CreateCommand();
-                        sqlComm.CommandText = @"INSERT INTO ShopBridgeProduct " + "(PRODUCT_NAME,PRODUCT_DESCRIPTION,PRICE) " + "VALUES(@paramName,@descr,@price)";
+                        sqlComm.CommandText = @"INSERT INTO ShopBridgeProduct " + "(PRODUCT_NAME,PRODUCT_DESCRIPTION,PRICE,IMAGE_FILE) " + "VALUES(@paramName,@descr,@price,@image)";
                         sqlComm.Parameters.Add("@paramName", SqlDbType.NVarChar);
                         sqlComm.Parameters["@paramName"].Value = itemName;
                         sqlComm.Parameters.Add("@descr", SqlDbType.NVarChar);
                         sqlComm.Parameters["@descr"].Value = description;
                         sqlComm.Parameters.Add("@price", SqlDbType.NVarChar);
                         sqlComm.Parameters["@price"].Value = price;
+                        if (!string.IsNullOrEmpty(fileAsString))
+                        {
+                            sqlComm.Parameters.Add("@image", SqlDbType.NVarChar);
+                            sqlComm.Parameters["@image"].Value = fileAsString;
+                        }                      
                         sqlConn.Open();
                         sqlComm.ExecuteNonQuery();
                         sqlConn.Close();
@@ -82,11 +128,45 @@ namespace ShopBridge_Project.Controllers
                     }
                     else if (action.ToUpper() == "MODIFY")
                     {
+                        fileAsString = "";
                         if (string.IsNullOrEmpty(itemName))
                         {
                             jresponse = "{\"status\":false,\"message\":\"Name is empty\"}";
                             return new RawJsonActionResult(jresponse);
                         }
+                        if (HttpContext.Current.Request.Files.Count > 0)
+                        {
+                            for (int i = 0; i < HttpContext.Current.Request.Files.Count; i++)
+                            {
+                                HttpFileCollection files = request.Files;
+                                HttpPostedFile httpfile = files[i];
+
+                                try
+                                {
+                                    if (httpfile.ContentLength > 0)
+                                    {
+
+                                        byte[] fileInBytes = new byte[httpfile.ContentLength];
+                                        using (BinaryReader theReader = new BinaryReader(httpfile.InputStream))
+                                        {
+                                            fileInBytes = theReader.ReadBytes(httpfile.ContentLength);
+                                        }
+                                        fileAsString = Convert.ToBase64String(fileInBytes);
+
+                                    }
+                                    else
+                                    {
+                                        jresponse = "{\"status\":false,\"message\":\"Image file not found\"}";
+                                        return new RawJsonActionResult(jresponse);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    jresponse = "{\"status\":false,\"message\":\"Some error occurred\"}";
+                                    return new RawJsonActionResult(jresponse);
+                                }
+                            }
+                        }                    
                         SqlConnection sqlConn = new SqlConnection(WebConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString);
                         SqlCommand sqlComm = new SqlCommand();
                         sqlComm = sqlConn.CreateCommand();
@@ -97,7 +177,16 @@ namespace ShopBridge_Project.Controllers
                         else if(ModifyItem.ToUpper() == "DESCRIPTION")
                         {
                             sqlComm.CommandText = @"UPDATE ShopBridgeProduct SET PRODUCT_DESCRIPTION=" + "'" + description + "'" + " WHERE PRODUCT_NAME=" + "'" + itemName + "'";
-                        }                     
+                        }  
+                        else if(ModifyItem.ToUpper() == "IMAGEFILE" && !string.IsNullOrEmpty(fileAsString) )
+                        {
+                            sqlComm.CommandText = @"UPDATE ShopBridgeProduct SET IMAGE_FILE=" + "'" + fileAsString + "'" + " WHERE PRODUCT_NAME=" + "'" + itemName + "'";
+                        }
+                        else
+                        {
+                            jresponse = "{\"status\":true,\"message\":\"Invalid Request.Select field to modify\"}";
+                            return new RawJsonActionResult(jresponse);
+                        }
                         sqlConn.Open();
                         sqlComm.ExecuteNonQuery();
                         output = Convert.ToInt32(sqlComm.ExecuteScalar()).ToString();
@@ -124,13 +213,26 @@ namespace ShopBridge_Project.Controllers
                     }
                     else if (action.ToUpper() == "LISTS")
                     {
+                        if (string.IsNullOrEmpty(pageNo))
+                        {
+                            jresponse = "{\"status\":false,\"message\":\"PageNumber is empty\"}";
+                            return new RawJsonActionResult(jresponse);
+                        }
+                        else if (string.IsNullOrEmpty(pageSize))
+                        {
+                            jresponse = "{\"status\":false,\"message\":\"PageSize is empty\"}";
+                            return new RawJsonActionResult(jresponse);
+                        }
                         SqlConnection sqlConn = new SqlConnection(WebConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString);
-                        SqlDataAdapter sqlAdapt = new SqlDataAdapter(@"SELECT PRODUCT_NAME FROM ShopBridgeProduct", sqlConn);
+                        String SQL = "SELECT ID,PRODUCT_NAME,PRODUCT_DESCRIPTION,PRICE FROM ShopBridgeProduct";
+                        String SQLOrderBy = "ORDER BY ID ASC "; //GetOrderByClause(Object someInputParams);
+                        String limitedSQL = GetPaginatedSQL((Convert.ToInt32(pageNo)-1)* Convert.ToInt32(pageSize), Convert.ToInt32(pageSize), SQL, SQLOrderBy);
+                        SqlDataAdapter sqlAdapt = new SqlDataAdapter(limitedSQL, sqlConn);
                         SqlCommandBuilder sqlCmdBuilder = new SqlCommandBuilder(sqlAdapt);
                         DataSet sqlSet = new DataSet();
                         sqlAdapt.Fill(sqlSet, "dataSetTableName");
                         sqlConn.Close();
-                        string js = ConvertDataSetToJSONString(sqlSet);
+                        string js = ConvertDataSetToJSONString(sqlSet,pageNo,pageSize);
                         jresponse = "{\"status\":true,\"message\":\"Data Updated Successfully\"}";
                         return new RawJsonActionResult(js);
                     }
@@ -144,9 +246,26 @@ namespace ShopBridge_Project.Controllers
             return new RawJsonActionResult(jresponse);
         }
 
-        public static string ConvertDataSetToJSONString(DataSet ds)
+        public static string GetPaginatedSQL(int startRow, int numberOfRows, string sql, string orderingClause)
         {
-            string lst = "{";
+            if (numberOfRows <= 0)
+            {
+                return String.Format("{0} {1}", sql, orderingClause);
+            }
+            String partialSQL = sql.Remove(0, "SELECT ".Length);
+
+            return String.Format(
+                "SELECT * FROM ( SELECT ROW_NUMBER() OVER ({0}) AS ROW_NO, {1} ) AS SUB WHERE ROW_NO > {2} AND ROW_NO <= {3}",
+                orderingClause,
+                partialSQL,
+                startRow.ToString(),
+                (startRow + numberOfRows).ToString()
+            );
+        }
+
+        public static string ConvertDataSetToJSONString(DataSet ds,string pageno,string pagesize)
+        {
+            string lst = "{"+ "\"PageNo\":\"" + pageno + "\"," + "\"PageSize\":\"" + pagesize + "\",";
             var count = 0;
             foreach (DataTable dt in ds.Tables)
             {
@@ -161,11 +280,11 @@ namespace ShopBridge_Project.Controllers
                 serializer.MaxJsonLength = Int32.MaxValue;
                 if (count > 0)
                 {
-                    lst += "\"Table" + count + "\"" + ":" + serializer.Serialize(lst1) + ",";
+                    lst += "\"ProductList" + count + "\"" + ":" + serializer.Serialize(lst1) + ",";
                 }
                 else
                 {
-                    lst += "\"Table\"" + ":" + serializer.Serialize(lst1) + ",";
+                    lst += "\"ProductList\"" + ":" + serializer.Serialize(lst1) + ",";
                 }
                 count++;
             }
